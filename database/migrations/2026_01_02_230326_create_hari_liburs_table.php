@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
 {
-    Schema::create('pengaturans', function (Blueprint $table) {
+    Schema::create('hari_liburs', function (Blueprint $table) {
         $table->id();
-        $table->string('key')->unique();   // Misal: buffer_masuk
-        $table->string('label');          // Misal: Jam Buka Absen Masuk
-        $table->string('value');          // Isinya PASTI format jam (07:30)
+        $table->date('tanggal')->unique(); // Tanggal libur (Y-m-d)
+        $table->string('keterangan');      // Misal: "Tahun Baru", "Cuti Bersama"
         $table->timestamps();
     });
 }
@@ -25,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('pengaturans');
+        Schema::dropIfExists('hari_liburs');
     }
 };

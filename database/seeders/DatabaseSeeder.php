@@ -20,46 +20,60 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@dsm.com',
             'password' => Hash::make('admin123'),
             'role' => 'admin',
-            'no_wa' => '6282211431087', // Format internasional untuk Nudge WA
+            'no_wa' => '6282211431087',
             'divisi' => null,
             'poin' => 0,
         ]);
 
-        // 2. Buat Contoh Akun Karyawan (Untuk Testing Reward & Nudge)
-        User::create([
-            'name' => 'Karyawan Demo',
-            'email' => 'karyawan@dsm.com',
-            'password' => Hash::make('karyawan123'),
-            'role' => 'karyawan',
-            'no_wa' => '6282273116245', // Gunakan nomor aktif untuk tes kirim pesan
-            'divisi' => 'Web Developer',
-            'poin' => 100, // Saldo awal poin sebagai apresiasi bergabung
-        ]);
+        // 2. Buat Contoh Akun Karyawan
+        $users = [
+            [
+                'name' => 'Karyawan Demo',
+                'email' => 'karyawan@dsm.com',
+                'password' => Hash::make('karyawan123'),
+                'role' => 'karyawan',
+                'no_wa' => '6282273116245',
+                'divisi' => 'Web Developer',
+                'poin' => 100,
+            ],
+            [
+                'name' => 'Minda',
+                'email' => 'minda@dsm.com',
+                'password' => Hash::make('karyawan123'),
+                'role' => 'karyawan',
+                'no_wa' => '',
+                'divisi' => 'Web Developer',
+                'poin' => 100,
+            ],
+            [
+                'name' => 'Rina',
+                'email' => 'rina@dsm.com',
+                'password' => Hash::make('karyawan123'),
+                'role' => 'karyawan',
+                'no_wa' => '',
+                'divisi' => 'Web Developer',
+                'poin' => 100,
+            ],
+        ];
 
-        User::create([
-            'name' => 'minda',
-            'email' => 'minda@dsm.com',
-            'password' => Hash::make('karyawan123'),
-            'role' => 'karyawan',
-            'no_wa' => '', // Gunakan nomor aktif untuk tes kirim pesan
-            'divisi' => 'Web Developer',
-            'poin' => 100, // Saldo awal poin sebagai apresiasi bergabung
-        ]);
+        foreach ($users as $user) {
+            User::create($user);
+        }
 
-        User::create([
-            'name' => 'rina',
-            'email' => 'rina@dsm.com',
-            'password' => Hash::make('karyawan123'),
-            'role' => 'karyawan',
-            'no_wa' => '', // Gunakan nomor aktif untuk tes kirim pesan
-            'divisi' => 'Web Developer',
-            'poin' => 100, // Saldo awal poin sebagai apresiasi bergabung
-        ]);
+        // 3. Konfigurasi Sistem (Pengaturans)
+        // Disesuaikan dengan struktur baru: key, label, value, type
 
-        // 3. Set Jam Masuk Default (Acuan keterlambatan)
-        Pengaturan::create([
-            'key' => 'jam_masuk',
-            'value' => '08:00',
-        ]);
+        $settings = [
+            ['key' => 'jam_masuk', 'label' => 'Jam Masuk Utama', 'value' => '08:00'],
+            ['key' => 'jam_pulang', 'label' => 'Jam Pulang Utama', 'value' => '17:00'],
+            ['key' => 'buffer_masuk', 'label' => 'Jendela Buka Masuk', 'value' => '07:30'],
+            ['key' => 'batas_tutup_masuk', 'label' => 'Jendela Tutup Masuk', 'value' => '10:00'],
+            ['key' => 'buffer_keluar', 'label' => 'Jendela Buka Pulang', 'value' => '16:45'],
+            ['key' => 'batas_tutup_keluar', 'label' => 'Sinyal Operasional Berakhir', 'value' => '22:00'],
+        ];
+
+        foreach ($settings as $setting) {
+            Pengaturan::create($setting);
+        }
     }
 }

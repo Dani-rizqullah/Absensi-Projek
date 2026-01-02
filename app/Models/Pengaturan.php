@@ -3,25 +3,31 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Pengaturan extends Model
 {
+    use HasFactory;
+
     /**
-     * Nama tabel eksplisit (Best Practice)
+     * Nama tabel eksplisit
      */
     protected $table = 'pengaturans';
 
     /**
-     * Kolom yang boleh diisi melalui form/updateOrCreate
+     * Kolom yang boleh diisi (Fillable)
+     * Ditambahkan 'label' dan 'type' sesuai migrasi terbaru
      */
     protected $fillable = [
         'key', 
-        'value'
+        'label', 
+        'value', 
+        
     ];
 
     /**
      * HELPER: Ambil nilai pengaturan berdasarkan key.
-     * Penggunaan: 
+     * Penggunaan di Controller/View: 
      * $jamMasuk = \App\Models\Pengaturan::getVal('jam_masuk', '08:00');
      */
     public static function getVal($key, $default = null)

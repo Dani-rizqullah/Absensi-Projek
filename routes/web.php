@@ -4,7 +4,7 @@ use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PengaturanController;
-use App\Http\Controllers\UserController; // Import Controller baru
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -40,25 +40,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Fitur Laporan Bulanan (Reporting Center)
         Route::get('/laporan', [AbsensiController::class, 'laporan'])->name('laporan');
         
-        // Approval System (POST Action)
+        // Approval System
         Route::post('/approve/{id}', [AbsensiController::class, 'approve'])->name('approve');
         Route::post('/reject/{id}', [AbsensiController::class, 'reject'])->name('reject');
         
         /**
-         * PUSAT OTORITAS PERSONEL (User Management CRUD)
-         * Menggunakan resource agar otomatis mendukung index, update, dan destroy
+         * PUSAT OTORITAS PERSONEL
          */
         Route::resource('users', UserController::class)->only([
             'index', 'update', 'destroy'
         ]);
 
-        // Master Pengaturan (Set Jam Masuk & Jam Pulang Kantor)
+        /**
+         * GLOBAL CONFIG & HOLIDAY MANAGEMENT
+         */
         Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan.index');
-        Route::post('/pengaturan/update', [PengaturanController::class, 'update'])->name('pengaturan.update');
+        // Gunakan PUT agar sesuai dengan @method('PUT') di view
+        Route::put('/pengaturan/update', [PengaturanController::class, 'update'])->name('pengaturan.update');
+        
+        // Route Baru untuk Hari Libur
+        Route::post('/libur/store', [PengaturanController::class, 'storeLibur'])->name('libur.store');
+        Route::delete('/libur/{id}', [PengaturanController::class, 'destroyLibur'])->name('libur.destroy');
     });
 
     /**
-     * 4. PROFILE SELF-SERVICE (Untuk kru mengedit profil sendiri)
+     * 4. PROFILE SELF-SERVICE
      */
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

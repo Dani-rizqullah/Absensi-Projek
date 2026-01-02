@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center gap-6 pb-6 border-b border-zinc-200 dark:border-zinc-800 transition-all duration-500">
             <div class="relative pl-6 text-left">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-zinc-800 dark:bg-white rounded-full"></div>
-                <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full"></div>
+                <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-zinc-200 dark:border-zinc-700 rounded-full"></div>
                 
                 <nav class="flex items-center gap-2 mb-2 text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">
                     <span>Anggota Kru</span>
@@ -30,8 +30,9 @@
     </x-slot>
 
     @php
-        $jamPulangConfig = \App\Models\Pengaturan::getVal('jam_pulang', '17:00');
-        $targetTime = date('Y-m-d') . ' ' . $jamPulangConfig . ':00';
+        // Mengambil jam buka sinyal pulang langsung dari buffer_keluar (Serba Waktu)
+        $jamBukaPulang = \App\Models\Pengaturan::getVal('buffer_keluar', '16:45');
+        $targetTime = date('Y-m-d') . ' ' . (strlen($jamBukaPulang) == 5 ? $jamBukaPulang . ':00' : $jamBukaPulang);
     @endphp
 
     <div class="py-10" 
@@ -39,7 +40,7 @@
             openDetail: false, selectedData: null, openModalKeluar: false, openModalBackdate: false,
             targetTime: '{{ $targetTime }}',
             countdown: '',
-            isLocked: true,
+            isLocked: {{ $statusAbsen['boleh_absen_keluar'] ? 'false' : 'true' }},
 
             updateCountdown() {
                 const now = new Date().getTime();
@@ -47,7 +48,8 @@
                 const distance = target - now;
 
                 if (distance <= 0) {
-                    this.isLocked = false;
+                    // Jika sudah lewat jam buka, sinkronkan dengan status dari server
+                    this.isLocked = {{ $statusAbsen['boleh_absen_keluar'] ? 'false' : 'true' }};
                     this.countdown = 'TERSEDIA';
                     return;
                 }
@@ -106,13 +108,25 @@
                     
                     <div class="flex flex-col lg:flex-row justify-between items-center gap-10 relative z-10 text-left">
                         <div class="w-full lg:w-auto text-left transform transition-all duration-500 group-hover/main:translate-x-2">
-                            @if(!$absenHariIni)
+                            
+                            @if($statusAbsen['is_libur'])
                                 <div class="flex items-center gap-2 mb-6">
-                                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                                    <span class="text-[11px] font-black text-rose-500 uppercase tracking-[0.3em]">🔴 Menunggu Presensi</span>
+                                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                                    <span class="text-[11px] font-black text-rose-500 uppercase tracking-[0.3em]">🔴 Sistem Off: Hari Libur</span>
+                                </div>
+                                <h3 class="text-4xl font-black text-zinc-800 dark:text-white uppercase italic tracking-tighter leading-none">Operasional Libur</h3>
+                                <p class="text-zinc-500 mt-4 font-medium text-sm italic text-left underline decoration-rose-500/30 decoration-2">{{ $statusAbsen['keterangan_libur'] }}</p>
+
+                            @elseif(!$absenHariIni)
+                                <div class="flex items-center gap-2 mb-6">
+                                    <span class="w-2 h-2 rounded-full {{ $statusAbsen['boleh_absen_masuk'] ? 'bg-emerald-500 animate-ping' : 'bg-rose-500 animate-pulse' }}"></span>
+                                    <span class="text-[11px] font-black {{ $statusAbsen['boleh_absen_masuk'] ? 'text-emerald-500' : 'text-rose-500' }} uppercase tracking-[0.3em]">
+                                        {{ $statusAbsen['boleh_absen_masuk'] ? '🟢 Akses Terbuka' : '🔴 Akses Terkunci' }}
+                                    </span>
                                 </div>
                                 <h3 class="text-4xl font-black text-zinc-800 dark:text-white uppercase italic tracking-tighter leading-none">Status Standby</h3>
-                                <p class="text-zinc-500 mt-4 font-medium text-sm italic">Batas waktu masuk: <span class="text-zinc-900 dark:text-white font-black underline">{{ \App\Models\Pengaturan::getVal('jam_masuk', '08:00') }}</span></p>
+                                <p class="text-zinc-500 mt-4 font-medium text-sm italic text-left">{{ $statusAbsen['pesan_masuk'] }}</p>
+
                             @elseif(!$absenHariIni->jam_keluar)
                                 <div class="flex items-center gap-2 mb-6 text-left">
                                     <template x-if="isLocked">
@@ -126,7 +140,7 @@
                                 <h3 class="text-4xl font-black text-zinc-800 dark:text-white uppercase italic tracking-tighter leading-none" x-text="isLocked ? 'Tugas Terkunci' : 'Tugas Selesai'"></h3>
                                 <p class="text-zinc-500 mt-4 font-medium text-sm italic text-left">
                                     <span x-show="isLocked">Sinyal keluar terbuka dalam: <strong class="text-zinc-900 dark:text-white tabular-nums" x-text="countdown"></strong></span>
-                                    <span x-show="!isLocked" class="text-emerald-600 dark:text-emerald-400">Sinyal operasional terbuka. Silahkan absen keluar.</span>
+                                    <span x-show="!isLocked" class="text-emerald-600 dark:text-emerald-400">{{ $statusAbsen['pesan_keluar'] }}</span>
                                 </p>
                             @else
                                 <div class="flex items-center gap-2 mb-6 text-left">
@@ -139,19 +153,28 @@
                         </div>
 
                         <div class="flex flex-wrap justify-center gap-4">
-                            @if(!$absenHariIni)
-                                <form action="{{ route('absen.masuk') }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-12 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] hover:scale-110 transition-all shadow-xl italic active:scale-95">MULAI PRESENSI</button>
-                                </form>
-                            @elseif(!$absenHariIni->jam_keluar)
-                                <button @click="openModalKeluar = true" 
-                                    :disabled="isLocked"
-                                    :class="isLocked ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:scale-110 shadow-emerald-500/20'"
-                                    class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-12 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-xl italic active:scale-95">
-                                    <span x-text="isLocked ? countdown : 'AKHIRI TUGAS'"></span>
-                                </button>
+                            @if(!$statusAbsen['is_libur'])
+                                @if(!$absenHariIni)
+                                    @if($statusAbsen['boleh_absen_masuk'])
+                                        <form action="{{ route('absen.masuk') }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-12 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] hover:scale-110 transition-all shadow-xl italic active:scale-95">MULAI PRESENSI</button>
+                                        </form>
+                                    @else
+                                        <div class="bg-zinc-100 dark:bg-zinc-800 px-10 py-6 rounded-3xl opacity-50 border border-zinc-200 dark:border-zinc-700 cursor-not-allowed">
+                                            <span class="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic leading-none">Akses Terkunci</span>
+                                        </div>
+                                    @endif
+                                @elseif(!$absenHariIni->jam_keluar)
+                                    <button @click="openModalKeluar = true" 
+                                        :disabled="isLocked"
+                                        :class="isLocked ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:scale-110 shadow-emerald-500/20'"
+                                        class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-12 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-xl italic active:scale-95">
+                                        <span x-text="isLocked ? countdown : 'AKHIRI TUGAS'"></span>
+                                    </button>
+                                @endif
                             @endif
+
                             <button @click="openModalBackdate = true" class="group/btn flex items-center gap-4 px-8 py-6 bg-zinc-50 dark:bg-zinc-800 rounded-3xl border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 transition-all active:scale-95">
                                 <svg class="w-5 h-5 text-zinc-400 group-hover/btn:text-zinc-900 dark:group-hover/btn:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-400 group-hover/btn:text-zinc-900 dark:group-hover/btn:text-white uppercase tracking-widest leading-none text-left">Protokol Khusus</span>
@@ -192,6 +215,7 @@
                             @php
                                 $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
                                 $absen = $riwayatAbsen->first(fn($q) => Carbon\Carbon::parse($q->tanggal)->format('Y-m-d') === $dateStr);
+                                $libur = $listLiburBulanIni->first(fn($q) => $q->tanggal->format('Y-m-d') === $dateStr);
                                 $isToday = $dateStr === date('Y-m-d');
                                 $isWeekend = in_array(Carbon\Carbon::parse($dateStr)->dayOfWeek, [0, 6]);
                             @endphp
@@ -206,13 +230,17 @@
                                 @if($isToday) id="today-cell" @endif
                                 class="relative aspect-square md:h-36 border-2 transition-all duration-300 group cursor-pointer rounded-3xl p-3 md:p-6 text-left
                                 {{ $isToday ? 'border-emerald-500 bg-emerald-500/5 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'border-zinc-50 dark:border-zinc-900' }} 
-                                {{ $absen ? 'bg-white dark:bg-zinc-900 shadow-xl hover:scale-105 z-10' : ($isWeekend ? 'bg-zinc-50/50 dark:bg-zinc-950/50 opacity-50' : 'bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-800') }}">
+                                {{ $absen ? 'bg-white dark:bg-zinc-900 shadow-xl hover:scale-105 z-10' : ($libur ? 'bg-rose-50 dark:bg-rose-500/5 border-rose-100 dark:border-rose-500/10' : ($isWeekend ? 'bg-zinc-50/50 dark:bg-zinc-950/50 opacity-50' : 'bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-800')) }}">
                                 
-                                <span class="text-xs md:text-sm font-black {{ $isToday ? 'text-emerald-600' : ($isWeekend ? 'text-zinc-300 dark:text-zinc-700' : 'text-zinc-400 group-hover:text-zinc-900') }}">
+                                <span class="text-xs md:text-sm font-black {{ $isToday ? 'text-emerald-600' : ($libur ? 'text-rose-500' : ($isWeekend ? 'text-zinc-300 dark:text-zinc-700' : 'text-zinc-400 group-hover:text-zinc-900')) }}">
                                     {{ str_pad($day, 2, '0', STR_PAD_LEFT) }}
                                 </span>
 
-                                @if($absen)
+                                @if($libur)
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center text-left">
+                                        <span class="text-[7px] md:text-[8px] font-black text-rose-500/60 uppercase leading-tight">{{ $libur->keterangan }}</span>
+                                    </div>
+                                @elseif($absen)
                                     <div class="absolute inset-0 flex flex-col items-center justify-center mt-4 pointer-events-none transition-transform duration-500 group-hover:scale-110">
                                         @if($absen->approval_status === 'Pending')
                                             <div class="w-2 h-2 bg-amber-400 rounded-full animate-ping"></div>
@@ -237,15 +265,8 @@
         </div>
 
         <div x-show="openDetail" class="fixed inset-0 z-[150] flex items-center justify-center p-6 text-left" x-cloak>
-            <div class="absolute inset-0 bg-zinc-950/90 backdrop-blur-md transition-opacity" 
-                 x-show="openDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                 @click="openDetail = false"></div>
-            <div class="bg-white dark:bg-zinc-900 rounded-[3rem] max-w-4xl w-full max-h-[90vh] overflow-hidden z-10 relative border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl" 
-                 x-show="openDetail"
-                 x-transition:enter="ease-out duration-500 transform" 
-                 x-transition:enter-start="opacity-0 scale-90 translate-y-10" 
-                 x-transition:enter-end="opacity-100 scale-100 translate-y-0">
-                
+            <div class="absolute inset-0 bg-zinc-950/90 backdrop-blur-md transition-opacity" x-show="openDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" @click="openDetail = false"></div>
+            <div class="bg-white dark:bg-zinc-900 rounded-[3rem] max-w-4xl w-full max-h-[90vh] overflow-hidden z-10 relative border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl" x-show="openDetail" x-transition:enter="ease-out duration-500 transform" x-transition:enter-start="opacity-0 scale-90 translate-y-10" x-transition:enter-end="opacity-100 scale-100 translate-y-0">
                 <div class="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-950/40 text-left">
                     <div class="flex items-center gap-6 text-left">
                         <div class="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-2xl font-black italic shadow-xl" x-text="selectedData?.user_name ? selectedData.user_name.substring(0,1) : '?'"></div>
@@ -259,7 +280,6 @@
                     </div>
                     <button @click="openDetail = false" class="w-10 h-10 flex items-center justify-center bg-white dark:bg-zinc-800 text-zinc-400 rounded-full hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm">✕</button>
                 </div>
-
                 <div class="p-8 overflow-y-auto custom-scrollbar text-left bg-white dark:bg-zinc-900">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-6">
@@ -321,6 +341,3 @@
         .aspect-square { height: auto !important; width: 100% !important; border-radius: 1.5rem !important; }
     }
 </style>
-
-
-
