@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('password');
             
             // Kustomisasi DSM CORE
-            $table->enum('role', ['admin', 'karyawan'])->default('karyawan');
+            $table->enum('role', ['admin', 'mentor', 'karyawan'])->default('karyawan');
             $table->enum('divisi', ['Jurnalis', 'Web Developer', 'UI/UX Design', 'Videographer/Editor'])->nullable();
             
             // Sistem Reward (Visi Kompleks)

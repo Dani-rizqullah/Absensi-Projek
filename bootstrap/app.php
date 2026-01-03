@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mendaftarkan alias middleware agar bisa digunakan di routes/web.php
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
+            'mentor' => \App\Http\Middleware\IsMentor::class, // Tambahkan ini
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

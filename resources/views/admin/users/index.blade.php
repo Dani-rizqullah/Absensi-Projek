@@ -27,7 +27,7 @@
                             <tr class="bg-zinc-50/50 dark:bg-zinc-950/20 border-b border-zinc-100 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                 <th class="px-8 py-6 tracking-[0.3em]">Personel</th>
                                 <th class="px-6 py-6 text-center tracking-[0.3em]">Unit</th>
-                                <th class="px-6 py-6 text-center tracking-[0.3em]">WhatsApp</th>
+                                <th class="px-6 py-6 text-center tracking-[0.3em]">Otoritas</th>
                                 <th class="px-8 py-6 text-right tracking-[0.3em]">Manajemen</th>
                             </tr>
                         </thead>
@@ -50,8 +50,10 @@
                                         {{ $user->divisi }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-5 text-center font-mono text-[11px] text-zinc-500 tabular-nums">
-                                    {{ $user->no_wa }}
+                                <td class="px-6 py-5 text-center">
+                                    <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase border italic {{ $user->role === 'mentor' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700' }}">
+                                        {{ $user->role }}
+                                    </span>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="flex justify-end gap-2">
@@ -88,7 +90,7 @@
                 
                 <div class="absolute top-0 left-0 w-full h-1.5 bg-zinc-800 dark:bg-white"></div>
                 
-                <h3 class="text-2xl font-black uppercase italic text-zinc-800 dark:text-white tracking-tighter mb-8">Edit <span class="text-zinc-400">Personel</span></h3>
+                <h3 class="text-2xl font-black uppercase italic text-zinc-800 dark:text-white tracking-tighter mb-8 text-left">Edit <span class="text-zinc-400">Personel</span></h3>
                 
                 <form :action="'/admin/users/' + selectedUser.id" method="POST" class="space-y-6">
                     @csrf @method('PUT')
@@ -96,6 +98,17 @@
                         <div class="text-left">
                             <label class="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-2">Nama Lengkap</label>
                             <input type="text" name="name" x-model="selectedUser.name" class="w-full bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 font-bold text-sm text-zinc-700 dark:text-zinc-300 focus:ring-zinc-500 transition-all">
+                        </div>
+
+                        <div class="text-left">
+                            <label class="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-2">Otoritas Role</label>
+                            <div class="relative">
+                                <select name="role" x-model="selectedUser.role"
+                                    class="block w-full rounded-2xl border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 font-bold text-sm text-zinc-700 dark:text-zinc-300 focus:ring-zinc-500 shadow-inner p-4 appearance-none cursor-pointer" required>
+                                    <option value="karyawan">Karyawan (Kru)</option>
+                                    <option value="mentor">Mentor (Kepala Unit)</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="text-left">
@@ -138,8 +151,4 @@
             </div>
         </div>
     </div>
-
-    <style>
-        [x-cloak] { display: none !important; }
-    </style>
 </x-app-layout>

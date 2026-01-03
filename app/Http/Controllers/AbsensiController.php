@@ -43,7 +43,10 @@ class AbsensiController extends Controller
             $statusLabel = 'Tanpa Keterangan';
 
             if ($absen) {
-                if (in_array($absen->status, ['Selesai', 'Sakit', 'Izin'])) {
+                // Tampilkan label khusus jika masih menunggu persetujuan admin
+                if ($absen->approval_status === 'Pending') {
+                    $statusLabel = 'Menunggu Validasi';
+                } elseif (in_array($absen->status, ['Selesai', 'Sakit', 'Izin'])) {
                     $statusLabel = $absen->status;
                 } elseif ($jamSekarang > $jamPulangKantor && !$absen->jam_keluar) {
                     $statusLabel = 'Terlambat Laporan';
@@ -57,6 +60,7 @@ class AbsensiController extends Controller
             return ['user' => $user, 'absen' => $absen, 'status_label' => $statusLabel];
         });
 
+        // Ambil semua pengajuan pending tanpa filter tanggal hari ini agar record lama tetap muncul
         $pengajuanPending = Absensi::with('user')
             ->where('approval_status', 'Pending')
             ->orderBy('tanggal', 'desc')
@@ -88,6 +92,10 @@ class AbsensiController extends Controller
         $absen = Absensi::findOrFail($id);
         $user = User::find($absen->user_id);
 
+        if ($absen->approval_status === 'Approved') {
+            return back()->with('info', 'Pengajuan ini sudah disetujui sebelumnya.');
+        }
+
         $jamMasukStandar = Pengaturan::getVal('jam_masuk', '08:00:00');
         $jamPulangStandar = Pengaturan::getVal('jam_pulang', '17:00:00');
 
@@ -96,21 +104,31 @@ class AbsensiController extends Controller
                 'jam_masuk' => $jamMasukStandar,
                 'jam_keluar' => $jamPulangStandar,
                 'approval_status' => 'Approved',
-                'status' => 'Selesai'
+                'status' => 'Selesai',
+                'poin_didapat' => 10
             ]);
             $user->increment('poin', 10);
         } else {
-            $absen->update(['approval_status' => 'Approved']);
+            $absen->update([
+                'approval_status' => 'Approved',
+                'poin_didapat' => 0
+            ]);
         }
 
         return back()->with('success', "Pengajuan {$absen->status} berhasil disetujui.");
     }
 
+    /**
+     * REJECT ADMIN
+     */
     public function reject($id)
     {
         $absen = Absensi::findOrFail($id);
-        $absen->update(['approval_status' => 'Rejected']);
-        return back()->with('error', 'Pengajuan telah ditolak.');
+        
+        // Data dihapus agar kalender kru kembali bersih (hari itu dianggap tidak ada record)
+        $absen->delete();
+        
+        return back()->with('error', 'Pengajuan telah ditolak dan record dibersihkan dari sistem.');
     }
 
     /**
@@ -126,15 +144,10 @@ class AbsensiController extends Controller
         $daftarDivisi = User::whereNotNull('divisi')->where('divisi', '!=', '')->distinct()->pluck('divisi');
 
         $users = User::where('role', 'karyawan')
-            ->when($search, function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            })
-            ->when($divisi, function ($q) use ($divisi) {
-                $q->where('divisi', $divisi);
-            })
-            ->with(['absensis' => function ($q) use ($bulan, $tahun) {
-                $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun);
-            }])->get();
+            ->when($search, fn($q) => $q->where('name', 'like', "%{$search}%"))
+            ->when($divisi, fn($q) => $q->where('divisi', $divisi))
+            ->with(['absensis' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)])
+            ->get();
 
         $daysInMonth = Carbon::create($tahun, $bulan)->daysInMonth;
         $dateContext = Carbon::create($tahun, $bulan, 1);
@@ -143,7 +156,7 @@ class AbsensiController extends Controller
     }
 
     /**
-     * PENGAJUAN BACKDATE
+     * PENGAJUAN BACKDATE / PROTOKOL
      */
     public function storeBackdate(Request $request)
     {
@@ -158,6 +171,8 @@ class AbsensiController extends Controller
         $fotoPath = $request->file('bukti_alasan')->store('bukti_khusus', 'public');
         $statusMap = ['lupa' => 'Hadir', 'sakit' => 'Sakit', 'izin' => 'Izin'];
 
+        // Menggunakan updateOrCreate agar jika kru mengajukan ulang di tanggal yang sama 
+        // (misal setelah ditolak atau ingin revisi), record lama diperbarui dan status kembali 'Pending'
         Absensi::updateOrCreate(
             ['user_id' => $userId, 'tanggal' => $request->tanggal],
             [
@@ -166,17 +181,18 @@ class AbsensiController extends Controller
                 'kegiatan_harian' => $request->kegiatan_harian ?? null,
                 'progres_perubahan' => $request->progres_perubahan ?? null,
                 'foto_bukti' => $fotoPath,
-                'approval_status' => 'Pending',
+                'approval_status' => 'Pending', // WAJIB: Balikkan ke Pending agar muncul lagi di Admin
                 'jam_masuk' => null,
                 'jam_keluar' => null,
+                'poin_didapat' => 0 // Reset poin sampai admin menyetujui
             ]
         );
 
-        return back()->with('success', 'Pengajuan berhasil terkirim ke Admin.');
+        return back()->with('success', 'Pengajuan protokol berhasil dikirim. Menunggu validasi admin.');
     }
 
     /**
-     * ABSEN MASUK HARIAN (DIUPDATE: Menggunakan Titik Waktu Jam Langsung)
+     * ABSEN MASUK HARIAN
      */
     public function storeMasuk(Request $request)
     {
@@ -193,7 +209,6 @@ class AbsensiController extends Controller
             return back()->with('error', 'Anda sudah memiliki catatan kehadiran hari ini.');
         }
 
-        // Ambil pengaturan sebagai objek Carbon (Tanpa hitungan matematika menit)
         $jamMasukKantor   = Carbon::parse(Pengaturan::getVal('jam_masuk', '08:00'));
         $waktuMulaiMasuk  = Carbon::parse(Pengaturan::getVal('buffer_masuk', '07:30'));
         $waktuSelesaiMasuk = Carbon::parse(Pengaturan::getVal('batas_tutup_masuk', '10:00'));
@@ -206,7 +221,6 @@ class AbsensiController extends Controller
             return back()->with('error', "Otorisasi Ditutup. Jendela waktu masuk telah berakhir pada pukul " . $waktuSelesaiMasuk->format('H:i'));
         }
 
-        // Bandingkan jam sekarang dengan jam masuk resmi untuk menentukan status Terlambat
         $isTepatWaktu = $now->format('H:i') <= $jamMasukKantor->format('H:i');
         $status = $isTepatWaktu ? 'Hadir' : 'Terlambat';
         $poin = $isTepatWaktu ? 10 : -5;
@@ -226,7 +240,7 @@ class AbsensiController extends Controller
     }
 
     /**
-     * ABSEN KELUAR HARIAN (DIUPDATE: Menggunakan Titik Waktu Jam Langsung)
+     * ABSEN KELUAR HARIAN
      */
     public function storeKeluar(Request $request)
     {
@@ -245,7 +259,6 @@ class AbsensiController extends Controller
             return back()->with('error', 'Gagal melakukan otorisasi keluar.');
         }
 
-        // Ambil pengaturan sebagai objek Carbon (Tanpa hitungan matematika menit)
         $jamPulangKantor    = Carbon::parse(Pengaturan::getVal('jam_pulang', '17:00'));
         $waktuMulaiPulang   = Carbon::parse(Pengaturan::getVal('buffer_keluar', '16:45'));
         $waktuSinyalTerputus = Carbon::parse(Pengaturan::getVal('batas_tutup_keluar', '22:00'));
@@ -259,8 +272,6 @@ class AbsensiController extends Controller
         }
 
         $fotoPath = $request->file('foto_bukti')->store('bukti_absen', 'public');
-        
-        // Cek ketepatan waktu lapor untuk perhitungan poin
         $tepatWaktuLapor = $now->format('H:i') >= $jamPulangKantor->format('H:i');
 
         $poin = $tepatWaktuLapor ? 5 : -2;

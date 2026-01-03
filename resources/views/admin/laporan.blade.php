@@ -3,7 +3,7 @@
     <div class="flex flex-col md:flex-row justify-between items-center gap-6 pb-6 border-b border-zinc-200 dark:border-zinc-800 transition-all print:hidden">
         <div class="relative pl-6">
             <div class="absolute left-0 top-0 bottom-0 w-1 bg-zinc-800 dark:bg-white rounded-full"></div>
-            <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full"></div>
+            <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-zinc-200 dark:border-zinc-700 rounded-full"></div>
             
             <nav class="flex items-center gap-2 mb-2 text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">
                 <span>Reporting</span>
@@ -119,7 +119,13 @@
                                 @for($d=1; $d<=$daysInMonth; $d++)
                                     @php
                                         $dateString = sprintf('%04d-%02d-%02d', $tahun, $bulan, $d);
-                                        $absen = $user->absensis->first(fn($item) => Carbon\Carbon::parse($item->tanggal)->format('Y-m-d') === $dateString);
+                                        $absenRaw = $user->absensis->first(fn($item) => Carbon\Carbon::parse($item->tanggal)->format('Y-m-d') === $dateString);
+                                        
+                                        // Filter: Data valid hanya jika Approved atau Auto
+                                        $absen = ($absenRaw && in_array($absenRaw->approval_status, ['Approved', 'Auto'])) ? $absenRaw : null;
+                                        // Deteksi data yang masih Pending
+                                        $isPending = ($absenRaw && $absenRaw->approval_status === 'Pending');
+                                        
                                         $isWeekend = Carbon\Carbon::parse($dateString)->isWeekend();
                                         $isCurrentDay = (date('j') == $d && date('n') == $bulan && date('Y') == $tahun);
                                     @endphp
@@ -138,16 +144,19 @@
                                                 
                                                 <button @click='selectedData = {!! json_encode(array_merge($absen->toArray(), ["user_name" => $user->name, "user_divisi" => $user->divisi])) !!}; openModal = true' 
                                                         class="print:hidden flex items-center justify-center w-full h-full hover:scale-110 transition-transform">
-                                                    @if($absen->approval_status === 'Pending')
-                                                        <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
-                                                    @else
-                                                        <span class="font-black text-[10px] {{ $statusChar[1] }}">{{ $statusChar[0] }}</span>
-                                                    @endif
+                                                    <span class="font-black text-[10px] {{ $statusChar[1] }}">{{ $statusChar[0] }}</span>
                                                 </button>
 
                                                 <span class="hidden print:block font-black text-[9px] {{ $statusChar[1] }}">
-                                                    {{ $absen->approval_status === 'Pending' ? 'P' : $statusChar[0] }}
+                                                    {{ $statusChar[0] }}
                                                 </span>
+                                            @elseif($isPending)
+                                                {{-- INDIKATOR PENDING: Muncul titik amber berkedip untuk Admin --}}
+                                                <button @click='selectedData = {!! json_encode(array_merge($absenRaw->toArray(), ["user_name" => $user->name, "user_divisi" => $user->divisi])) !!}; openModal = true' 
+                                                        class="print:hidden flex items-center justify-center w-full h-full">
+                                                    <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+                                                </button>
+                                                <span class="hidden print:block text-zinc-200 select-none text-[8px]">&bull;</span>
                                             @else
                                                 <div class="text-zinc-100 dark:text-zinc-800 text-[10px] select-none">&bull;</div>
                                             @endif
@@ -166,6 +175,7 @@
                         <div class="flex items-center gap-2"><span class="text-amber-500 font-black text-xs">T</span><span class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-left">Terlambat</span></div>
                         <div class="flex items-center gap-2"><span class="text-rose-500 font-black text-xs">S</span><span class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-left">Sakit</span></div>
                         <div class="flex items-center gap-2"><span class="text-blue-500 font-black text-xs">I</span><span class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-left">Izin</span></div>
+                        <div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div><span class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-left">Pending</span></div>
                     </div>
 
                     <div class="hidden print:flex gap-12 text-left">
@@ -192,15 +202,15 @@
             <div class="bg-white dark:bg-zinc-900 rounded-[3.5rem] max-w-4xl w-full max-h-[90vh] overflow-hidden z-10 relative border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl transition-all" 
                  x-transition:enter="ease-out duration-300 transform" x-transition:enter-start="opacity-0 scale-95 translate-y-8">
                 
-                <div class="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                <div class="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div class="text-left">
                         <h3 class="text-2xl font-black uppercase italic dark:text-white text-zinc-800 leading-none" x-text="selectedData?.user_name"></h3>
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.3em] mt-2" x-text="(selectedData?.user_divisi || 'UNIT') + ' &bull; ' + (selectedData?.tanggal || 'DATE')"></p>
                     </div>
-                    <button @click="openModal = false" class="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-full hover:text-zinc-900 dark:hover:text-white transition-all">✕</button>
+                    <button @click="openModal = false" class="w-10 h-10 flex items-center justify-center bg-white dark:bg-zinc-800 text-zinc-400 rounded-full hover:text-zinc-900 dark:hover:text-white transition-all border border-zinc-100 dark:border-zinc-700">✕</button>
                 </div>
 
-                <div class="p-8 overflow-y-auto custom-scrollbar text-left">
+                <div class="p-8 overflow-y-auto custom-scrollbar text-left bg-white dark:bg-zinc-900">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-6">
                             <div class="grid grid-cols-3 gap-3">
@@ -220,12 +230,12 @@
 
                             <div class="space-y-4">
                                 <div class="p-6 bg-zinc-100 dark:bg-zinc-800/50 rounded-[2rem] border border-zinc-200 dark:border-zinc-700">
-                                    <p class="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3">Laporan Kegiatan / Alasan</p>
+                                    <p class="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3 italic">LAPORAN KEGIATAN / ALASAN</p>
                                     <p class="text-sm font-bold text-zinc-700 dark:text-zinc-200 italic leading-relaxed" x-text="selectedData?.kegiatan_harian || selectedData?.alasan_lupa_absen || 'Tidak ada catatan.'"></p>
                                 </div>
                                 
                                 <div class="p-6 bg-zinc-900 text-white rounded-[2rem] shadow-xl border border-white/5">
-                                    <p class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-3 italic text-emerald-500">Perubahan dari Sebelumnya</p>
+                                    <p class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-3 italic text-emerald-500">Perubahan Progres</p>
                                     <p class="text-sm font-medium italic text-zinc-300 leading-relaxed" x-text="selectedData?.progres_perubahan || 'Tidak ada catatan perubahan.'"></p>
                                 </div>
                             </div>
@@ -233,15 +243,20 @@
 
                         <div class="space-y-4">
                             <p class="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-2">Visual Validation</p>
-                            <div class="aspect-[4/3] bg-zinc-200 dark:bg-zinc-800 rounded-3xl overflow-hidden border-2 border-white dark:border-zinc-700 shadow-inner">
+                            <div class="aspect-[4/3] bg-zinc-200 dark:bg-zinc-800 rounded-3xl overflow-hidden border-2 border-white dark:border-zinc-700 shadow-inner group">
                                 <template x-if="selectedData?.foto_bukti">
-                                    <img :src="'/storage/' + selectedData.foto_bukti" class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700">
+                                    <img :src="'/storage/' + selectedData.foto_bukti" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700">
                                 </template>
                                 <div x-show="!selectedData?.foto_bukti" class="w-full h-full flex items-center justify-center italic text-zinc-400 text-[10px] font-black uppercase">No Attachment</div>
                             </div>
                             <div class="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50 shadow-inner">
                                 <p class="text-[9px] font-black text-zinc-400 uppercase">Status Final</p>
-                                <span class="px-3 py-1 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm" x-text="selectedData?.status"></span>
+                                <div class="flex items-center gap-2">
+                                    <template x-if="selectedData?.approval_status === 'Pending'">
+                                        <span class="px-3 py-1 bg-amber-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest animate-pulse">Wait Admin</span>
+                                    </template>
+                                    <span class="px-3 py-1 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm" x-text="selectedData?.status"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -254,50 +269,24 @@
         #today-column { border: 2px solid #10b981 !important; z-index: 10; position: relative; }
         
         @media print {
-            @page { 
-                size: A4 landscape; 
-                margin: 0.5cm; 
-            }
+            @page { size: A4 landscape; margin: 0.5cm; }
             nav, .print\:hidden, form, button { display: none !important; }
             .py-10 { padding: 0 !important; }
             .max-w-full { padding: 0 !important; }
             .printable-area { border: 1px solid #d1d5db !important; border-radius: 0 !important; width: 100% !important; margin: 0 !important; box-shadow: none !important; background: white !important; }
             
-            table { 
-                width: 100% !important; 
-                table-layout: fixed !important; 
-                border-collapse: collapse !important; 
-            }
-            th, td { 
-                font-size: 7px !important; 
-                padding: 4px 1px !important; 
-                border: 0.5px solid #e5e7eb !important; 
-                height: auto !important;
-                color: black !important;
-            }
-            th:first-child, td:first-child { 
-                width: 140px !important; 
-                min-width: 140px !important; 
-                font-size: 8px !important;
-                position: static !important; 
-                box-shadow: none !important;
-                background: white !important;
-            }
+            table { width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
+            th, td { font-size: 7px !important; padding: 4px 1px !important; border: 0.5px solid #e5e7eb !important; height: auto !important; color: black !important; }
+            th:first-child, td:first-child { width: 140px !important; min-width: 140px !important; font-size: 8px !important; position: static !important; box-shadow: none !important; background: white !important; }
 
             .dark { background: white !important; color: black !important; }
-            .dark .dark\:bg-zinc-950, .dark .dark\:bg-zinc-900, .dark .bg-zinc-900, .dark .bg-white { 
-                background: white !important; 
-                color: black !important; 
-            }
+            .dark .dark\:bg-zinc-950, .dark .dark\:bg-zinc-900, .dark .bg-zinc-900, .dark .bg-white { background: white !important; color: black !important; }
             .dark .text-white, .dark .dark\:text-white { color: black !important; }
             
             .hidden.print\:flex { display: flex !important; }
             .hidden.print\:block { display: block !important; }
             
-            * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .text-emerald-500 { color: #059669 !important; }
             .text-amber-500 { color: #d97706 !important; }
             .text-rose-500 { color: #dc2626 !important; }

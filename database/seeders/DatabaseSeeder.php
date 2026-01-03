@@ -25,44 +25,36 @@ class DatabaseSeeder extends Seeder
             'poin' => 0,
         ]);
 
-        // 2. Buat Contoh Akun Karyawan
-        $users = [
-            [
-                'name' => 'Karyawan Demo',
-                'email' => 'karyawan@dsm.com',
-                'password' => Hash::make('karyawan123'),
-                'role' => 'karyawan',
-                'no_wa' => '6282273116245',
-                'divisi' => 'Web Developer',
-                'poin' => 100,
-            ],
-            [
-                'name' => 'Minda',
-                'email' => 'minda@dsm.com',
-                'password' => Hash::make('karyawan123'),
-                'role' => 'karyawan',
-                'no_wa' => '',
-                'divisi' => 'Web Developer',
-                'poin' => 100,
-            ],
-            [
-                'name' => 'Rina',
-                'email' => 'rina@dsm.com',
-                'password' => Hash::make('karyawan123'),
-                'role' => 'karyawan',
-                'no_wa' => '',
-                'divisi' => 'Web Developer',
-                'poin' => 100,
-            ],
-        ];
+        // Daftar Divisi yang tersedia
+        $divisiList = ['Jurnalis', 'Web Developer', 'UI/UX Design', 'Videographer/Editor'];
 
-        foreach ($users as $user) {
-            User::create($user);
+        // 2. Buat Akun Mentor (1 per Divisi)
+        foreach ($divisiList as $index => $div) {
+            User::create([
+                'name' => 'Mentor ' . $div,
+                'email' => 'mentor.' . strtolower(str_replace(['/', ' '], '', $div)) . '@dsm.com',
+                'password' => Hash::make('mentor123'),
+                'role' => 'mentor',
+                'no_wa' => '62812345678' . $index,
+                'divisi' => $div,
+                'poin' => 0,
+            ]);
+
+            // 3. Buat Akun Karyawan (2 per Divisi)
+            for ($i = 1; $i <= 2; $i++) {
+                User::create([
+                    'name' => 'Staff ' . $div . ' ' . $i,
+                    'email' => 'staff' . $i . '.' . strtolower(str_replace(['/', ' '], '', $div)) . '@dsm.com',
+                    'password' => Hash::make('karyawan123'),
+                    'role' => 'karyawan',
+                    'no_wa' => '62857123456' . $index . $i,
+                    'divisi' => $div,
+                    'poin' => 100,
+                ]);
+            }
         }
 
-        // 3. Konfigurasi Sistem (Pengaturans)
-        // Disesuaikan dengan struktur baru: key, label, value, type
-
+        // 4. Konfigurasi Sistem (Pengaturans)
         $settings = [
             ['key' => 'jam_masuk', 'label' => 'Jam Masuk Utama', 'value' => '08:00'],
             ['key' => 'jam_pulang', 'label' => 'Jam Pulang Utama', 'value' => '17:00'],
