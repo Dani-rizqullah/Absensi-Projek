@@ -19,22 +19,17 @@ class TugasController extends Controller
         $user = Auth::user();
         $now = now();
 
-        // Gunakan with('mentor') untuk menghindari N+1 query problem
         $query = $user->tugas()->with('mentor');
 
-        // 1. TUGAS AKTIF: Sudah mulai DAN status belum 'selesai'
-        // Kita gunakan wherePivotNotIn untuk keamanan jika ada variasi huruf besar
         $tugasActive = (clone $query)->where('tgl_mulai', '<=', $now)
             ->wherePivotNotIn('status', ['selesai', 'Selesai'])
             ->orderBy('tgl_selesai', 'asc')
             ->get();
 
-        // 2. TUGAS MENDATANG: Belum masuk tanggal mulai
         $tugasUpcoming = (clone $query)->where('tgl_mulai', '>', $now)
             ->orderBy('tgl_mulai', 'asc')
             ->get();
 
-        // 3. TUGAS SELESAI (ARSIP): Status sudah 'selesai'
         $tugasCompleted = (clone $query)->wherePivotIn('status', ['selesai', 'Selesai'])
             ->orderBy('tgl_pengumpulan', 'desc')
             ->get();
@@ -93,7 +88,6 @@ class TugasController extends Controller
             'tgl_selesai' => $request->tgl_selesai,
         ]);
 
-        // Parameter 'false' memastikan progress karyawan lama tidak terhapus jika mereka masih dipilih
         $tugas->karyawans()->syncWithPivotValues($request->karyawan_ids, ['status' => 'pending'], false);
 
         return back()->with('success', 'Tugas berhasil diperbarui.');
@@ -106,7 +100,13 @@ class TugasController extends Controller
     {
         $request->validate([
             'tugas_id' => 'required|exists:tugas,id',
-            'file_hasil' => 'nullable|file|mimes:pdf,zip,jpg,png|max:5120',
+            'file_hasil' => [
+                'nullable',
+                'file',
+                'mimes:pdf,zip,jpg,jpeg,png', 
+                'mimetypes:application/pdf,application/zip,image/jpeg,image/png',
+                'max:5120'
+            ],
             'link_tautan' => 'nullable|url',
             'pesan_karyawan' => 'required|string',
         ]);
@@ -114,14 +114,28 @@ class TugasController extends Controller
         $user = Auth::user();
         $filePath = null;
 
-        // Ambil data lama untuk cek file lama jika ingin dihapus (opsional)
         if ($request->hasFile('file_hasil')) {
-            $filePath = $request->file('file_hasil')->store('hasil_tugas', 'public');
+            $file = $request->file('file_hasil');
+            
+            // SECURITY CHECK: Anti-Double Extension & PHP Scripts
+            $originalName = $file->getClientOriginalName();
+            if (preg_match('/\.(php|phtml|php3|php4|php5|phar|sh|pl|py|jsp|asp|cgi)/i', $originalName)) {
+                return back()->with('error', 'Konten ilegal terdeteksi dalam nama file!');
+            }
+
+            $filePath = $file->store('hasil_tugas', 'public');
+        }
+
+        $pivotData = $user->tugas()->where('tugas_id', $request->tugas_id)->first()->pivot;
+
+        // Jika upload file baru, hapus file lama (jika ada)
+        if ($filePath && $pivotData->file_hasil) {
+            Storage::disk('public')->delete($pivotData->file_hasil);
         }
 
         $user->tugas()->updateExistingPivot($request->tugas_id, [
             'status' => 'dikumpulkan',
-            'file_hasil' => $filePath,
+            'file_hasil' => $filePath ?? $pivotData->file_hasil,
             'link_tautan' => $request->link_tautan,
             'pesan_karyawan' => $request->pesan_karyawan,
             'tgl_pengumpulan' => now(),
@@ -146,5 +160,34 @@ class TugasController extends Controller
         ]);
 
         return back()->with('success', 'Status tugas diperbarui menjadi Selesai.');
+    }
+
+    /**
+     * MENTOR: Menolak laporan tugas agar karyawan bisa kirim ulang
+     */
+    public function tolakLaporan(Request $request, $tugasId, $userId)
+    {
+        $tugas = Tugas::findOrFail($tugasId);
+
+        if (Auth::id() !== $tugas->mentor_id && Auth::user()->role !== 'admin') {
+            return back()->with('error', 'Otoritas ditolak.');
+        }
+
+        // Ambil data pivot untuk menghapus file yang ditolak
+        $karyawan = $tugas->karyawans()->where('user_id', $userId)->first();
+        
+        if ($karyawan && $karyawan->pivot->file_hasil) {
+            Storage::disk('public')->delete($karyawan->pivot->file_hasil);
+        }
+
+        // Kembalikan status ke 'pending' agar bisa di-upload ulang oleh karyawan
+        $tugas->karyawans()->updateExistingPivot($userId, [
+            'status' => 'pending',
+            'file_hasil' => null,
+            'tgl_pengumpulan' => null
+            // Pesan karyawan dibiarkan atau dihapus sesuai kebutuhan, di sini kita hapus filenya saja
+        ]);
+
+        return back()->with('error', 'Laporan tugas telah ditolak. Karyawan wajib mengirim ulang laporan.');
     }
 }

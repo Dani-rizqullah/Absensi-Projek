@@ -33,7 +33,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     /**
-     * 3. FITUR TUGAS KARYAWAN (Menggunakan TugasController Utama)
+     * 3. FITUR TUGAS KARYAWAN (Mission Hub)
      */
     Route::prefix('tugas')->name('tugas.')->group(function () {
         Route::get('/', [TugasController::class, 'indexKaryawan'])->name('index');
@@ -47,7 +47,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/monitoring', [AbsensiController::class, 'indexAdmin'])->name('monitoring');
         Route::get('/dashboard', [AbsensiController::class, 'indexAdmin'])->name('dashboard');
 
-        // MENGGUNAKAN AdminTugasController (Aliased)
+        // Monitoring Tugas oleh Admin
         Route::get('/monitoring-tugas', [AdminTugasController::class, 'index'])->name('tugas.index');
         Route::delete('/monitoring-tugas/{id}', [AdminTugasController::class, 'destroy'])->name('tugas.destroy');
 
@@ -71,10 +71,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/personnel', [MentorController::class, 'personnel'])->name('personnel');
         Route::get('/karyawan/{id}', [MentorController::class, 'showKaryawan'])->name('show_karyawan');
 
-        // MENGGUNAKAN TugasController Utama
+        // MANAJEMEN TUGAS OLEH MENTOR
         Route::post('/tugas/simpan', [TugasController::class, 'store'])->name('tugas.store');
         Route::post('/tugas/update/{id}', [TugasController::class, 'update'])->name('tugas.update');
+        
+        // FITUR HAPUS MISI (Hanya Mentor pembuat atau Admin)
+        Route::delete('/tugas/destroy/{id}', [TugasController::class, 'destroy'])->name('tugas.destroy');
+
+        // APPROVAL & REJECT LAPORAN KRU
         Route::post('/tugas/selesai/{tugasId}/{userId}', [TugasController::class, 'tandaiSelesai'])->name('tugas.selesai');
+        Route::post('/tugas/tolak/{tugasId}/{userId}', [TugasController::class, 'tolakLaporan'])->name('tugas.tolak');
     });
 
     /**

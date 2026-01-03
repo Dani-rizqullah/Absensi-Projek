@@ -249,6 +249,12 @@
                         </div>
                     @endforeach
                 </div>
+
+                <div class="mt-8 flex justify-center">
+                    @if(method_exists($daftarTugas, 'links'))
+                        {{ $daftarTugas->links() }}
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -326,6 +332,7 @@
                         <p class="text-[10px] font-bold text-zinc-400 uppercase mt-2 italic tracking-widest border-l-2 border-zinc-200 dark:border-zinc-700 pl-3 ml-1 leading-none" x-text="selectedKaryawanTugas?.judul"></p>
                     </div>
                     <div class="p-7 rounded-[2rem] bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 italic text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed shadow-inner min-h-[120px]" x-text="selectedKaryawanTugas?.pesan"></div>
+                    
                     <div class="grid grid-cols-1 gap-4 text-left leading-none">
                         <template x-if="selectedKaryawanTugas?.file">
                             <a :href="'{{ asset('storage') }}/' + selectedKaryawanTugas?.file" target="_blank" class="group flex items-center justify-center gap-3 p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest shadow-sm hover:scale-[1.02] transition-all italic border border-zinc-200 dark:border-zinc-700 leading-none">
@@ -341,11 +348,19 @@
                             </a>
                         </template>
                     </div>
+
                     <template x-if="selectedKaryawanTugas?.status == 'dikumpulkan'">
-                        <form :action="'{{ url('mentor/tugas/selesai') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST" class="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-left leading-none">
-                            @csrf
-                            <button type="submit" class="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 italic hover:bg-emerald-600 transition-all active:scale-95 leading-none uppercase">OTORISASI MISI SELESAI</button>
-                        </form>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                            <form :action="'{{ url('mentor/tugas/tolak') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST" onsubmit="return confirm('Tolak laporan ini? Karyawan harus mengirim ulang bukti.')">
+                                @csrf
+                                <button type="submit" class="w-full bg-rose-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-rose-500/20 italic hover:bg-rose-600 transition-all active:scale-95 leading-none">REJECT REPORT</button>
+                            </form>
+
+                            <form :action="'{{ url('mentor/tugas/selesai') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST">
+                                @csrf
+                                <button type="submit" class="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 italic hover:bg-emerald-600 transition-all active:scale-95 leading-none">APPROVE MISSION</button>
+                            </form>
+                        </div>
                     </template>
                 </div>
             </div>
@@ -381,7 +396,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <style>
