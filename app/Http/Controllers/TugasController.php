@@ -117,7 +117,6 @@ class TugasController extends Controller
         if ($request->hasFile('file_hasil')) {
             $file = $request->file('file_hasil');
             
-            // SECURITY CHECK: Anti-Double Extension & PHP Scripts
             $originalName = $file->getClientOriginalName();
             if (preg_match('/\.(php|phtml|php3|php4|php5|phar|sh|pl|py|jsp|asp|cgi)/i', $originalName)) {
                 return back()->with('error', 'Konten ilegal terdeteksi dalam nama file!');
@@ -128,7 +127,6 @@ class TugasController extends Controller
 
         $pivotData = $user->tugas()->where('tugas_id', $request->tugas_id)->first()->pivot;
 
-        // Jika upload file baru, hapus file lama (jika ada)
         if ($filePath && $pivotData->file_hasil) {
             Storage::disk('public')->delete($pivotData->file_hasil);
         }
@@ -138,6 +136,7 @@ class TugasController extends Controller
             'file_hasil' => $filePath ?? $pivotData->file_hasil,
             'link_tautan' => $request->link_tautan,
             'pesan_karyawan' => $request->pesan_karyawan,
+            'alasan_tolak' => null, // Reset alasan tolak jika user mengirimkan revisi baru
             'tgl_pengumpulan' => now(),
         ]);
 
@@ -156,7 +155,8 @@ class TugasController extends Controller
         }
 
         $tugas->karyawans()->updateExistingPivot($userId, [
-            'status' => 'selesai'
+            'status' => 'selesai',
+            'alasan_tolak' => null // Pastikan bersih saat sudah disetujui
         ]);
 
         return back()->with('success', 'Status tugas diperbarui menjadi Selesai.');
@@ -167,27 +167,54 @@ class TugasController extends Controller
      */
     public function tolakLaporan(Request $request, $tugasId, $userId)
     {
+        // Validasi input alasan penolakan
+        $request->validate([
+            'alasan_tolak' => 'required|string|min:5'
+        ]);
+
         $tugas = Tugas::findOrFail($tugasId);
 
         if (Auth::id() !== $tugas->mentor_id && Auth::user()->role !== 'admin') {
             return back()->with('error', 'Otoritas ditolak.');
         }
 
-        // Ambil data pivot untuk menghapus file yang ditolak
         $karyawan = $tugas->karyawans()->where('user_id', $userId)->first();
         
         if ($karyawan && $karyawan->pivot->file_hasil) {
             Storage::disk('public')->delete($karyawan->pivot->file_hasil);
         }
 
-        // Kembalikan status ke 'pending' agar bisa di-upload ulang oleh karyawan
+        // Kembalikan status ke 'pending' dan simpan alasan penolakan
         $tugas->karyawans()->updateExistingPivot($userId, [
             'status' => 'pending',
             'file_hasil' => null,
+            'alasan_tolak' => $request->alasan_tolak, // Simpan alasan penolakan
             'tgl_pengumpulan' => null
-            // Pesan karyawan dibiarkan atau dihapus sesuai kebutuhan, di sini kita hapus filenya saja
         ]);
 
-        return back()->with('error', 'Laporan tugas telah ditolak. Karyawan wajib mengirim ulang laporan.');
+        return back()->with('success', 'Laporan tugas telah ditolak. Karyawan akan melihat alasan perbaikan.');
+    }
+
+    /**
+     * MENTOR: Menghapus misi (Fitur Terminate Mission)
+     */
+    public function destroy($id)
+    {
+        $tugas = Tugas::findOrFail($id);
+
+        if (Auth::id() !== $tugas->mentor_id && Auth::user()->role !== 'admin') {
+            return back()->with('error', 'Otoritas ditolak.');
+        }
+
+        // Hapus semua file terkait di pivot table sebelum menghapus tugas
+        foreach($tugas->karyawans as $karyawan) {
+            if($karyawan->pivot->file_hasil) {
+                Storage::disk('public')->delete($karyawan->pivot->file_hasil);
+            }
+        }
+
+        $tugas->delete();
+
+        return back()->with('success', 'Misi berhasil dihentikan dan dihapus dari sistem.');
     }
 }

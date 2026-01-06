@@ -88,7 +88,7 @@ class User extends Authenticatable
     }
 
     /**
-     * RELASI UNTUK FITUR MENTOR (Mendatang):
+     * RELASI UNTUK FITUR MENTOR:
      * Jika user adalah Mentor, dia memiliki banyak tugas yang dibuat.
      */
     public function tugasDibuat()
@@ -97,13 +97,14 @@ class User extends Authenticatable
     }
 
     /**
-     * RELASI UNTUK FITUR TUGAS (Mendatang):
+     * RELASI UNTUK FITUR TUGAS:
      * User (Karyawan) bisa memiliki banyak tugas dari mentor.
      */
     public function tugas()
     {
         return $this->belongsToMany(Tugas::class, 'tugas_karyawan', 'user_id', 'tugas_id')
-            ->withPivot('status', 'file_hasil', 'link_tautan', 'pesan_karyawan', 'tgl_pengumpulan')
+            // PENYESUAIAN: Menambahkan 'alasan_tolak' agar bisa diakses di dashboard
+            ->withPivot('status', 'file_hasil', 'link_tautan', 'pesan_karyawan', 'alasan_tolak', 'tgl_pengumpulan')
             ->withTimestamps();
     }
 }

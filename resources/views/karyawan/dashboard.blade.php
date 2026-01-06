@@ -37,10 +37,12 @@
         $targetTime = date('Y-m-d') . ' ' . (strlen($jamBukaPulang) == 5 ? $jamBukaPulang . ':00' : $jamBukaPulang);
         $startDay = Carbon\Carbon::create($year, $month, 1)->dayOfWeek;
         $daysInMonth = Carbon\Carbon::create($year, $month)->daysInMonth;
+        $tugasButuhRevisi = $tugasOngoing->filter(fn($t) => $t->pivot->alasan_tolak != null);
     @endphp
 
     <div class="py-6 md:py-10 text-left relative" x-data="calendarData()" x-init="initCountdown()">
 
+        {{-- Tooltip tetap sama --}}
         <template x-if="tooltipOpen">
             <div class="fixed pointer-events-none z-[9999] bg-zinc-900/95 dark:bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-zinc-700/50 dark:border-zinc-200 shadow-2xl min-w-[200px]"
                  :style="`left: ${tooltipX + 15}px; top: ${tooltipY + 15}px;`"
@@ -65,17 +67,13 @@
                                 <span class="text-[9px] font-bold text-white dark:text-zinc-900 leading-tight italic uppercase" x-text="t.judul"></span>
                             </div>
                         </template>
-                        <template x-if="tooltipLibur">
-                            <div class="flex items-center gap-2 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20">
-                                <span class="text-[9px] font-black text-rose-500 uppercase" x-text="tooltipLibur"></span>
-                            </div>
-                        </template>
                     </div>
                 </div>
             </div>
         </template>
 
         <div class="max-w-7xl mx-auto px-4 md:px-10 space-y-8 text-left">
+            {{-- Bagian Banner Status --}}
             <div class="relative bg-zinc-900 dark:bg-white rounded-[2.5rem] p-1 shadow-2xl">
                 <div class="bg-white dark:bg-zinc-900 rounded-[2.3rem] p-6 md:p-10 relative overflow-hidden text-left transition-all duration-500">
                     <div class="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]" style="background-image: radial-gradient(#000 0.5px, transparent 0.5px); background-size: 15px 15px;"></div>
@@ -95,7 +93,20 @@
                                 <span class="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[9px] font-black uppercase border border-emerald-500/20">MISSION_SUCCESS</span>
                                 <h3 class="text-2xl md:text-4xl font-black text-zinc-800 dark:text-white uppercase italic tracking-tighter mt-4">Siklus Selesai</h3>
                             @endif
+
+                            @if($tugasButuhRevisi->count() > 0)
+                                <div class="mt-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4 animate-pulse">
+                                    <div class="bg-rose-500 p-2 rounded-xl text-white">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    </div>
+                                    <div class="text-left leading-tight">
+                                        <p class="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-none">Peringatan_Evaluasi</p>
+                                        <p class="text-xs font-bold text-zinc-600 dark:text-zinc-400 mt-1 uppercase italic leading-none">Ada laporan yang ditolak. Cek kolom misi di bawah.</p>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
+
                         <div class="flex flex-wrap md:flex-nowrap w-full md:w-auto gap-3 text-left">
                             @if(!$statusAbsen['is_libur'])
                                 @if(!$absenHariIni && $statusAbsen['boleh_absen_masuk'])
@@ -114,11 +125,11 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
+                {{-- Kolom Kalender tetap sama --}}
                 <div class="lg:col-span-7 space-y-6">
                     <div class="bg-white dark:bg-zinc-950 rounded-[2.5rem] border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden"
                          @mousemove="updateTooltipPos($event)"
                          @mouseleave="hideTooltip()"> 
-                        
                         <div class="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/30">
                             <h3 class="text-sm font-black text-zinc-800 dark:text-white uppercase italic tracking-widest">{{ Carbon\Carbon::create()->month($month)->translatedFormat('F') }} {{ $year }}</h3>
                             <div class="flex gap-2 text-left">
@@ -127,7 +138,7 @@
                             </div>
                         </div>
 
-                        <div class="p-4 md:p-6 text-left">
+                        <div class="p-4 md:p-6 text-left text-left">
                             <div class="grid grid-cols-7 gap-2">
                                 @foreach(['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'] as $dayName)
                                     <div class="text-center text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase mb-2">{{ $dayName }}</div>
@@ -141,10 +152,7 @@
                                     @php
                                         $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
                                         $rawAbsen = $riwayatAbsen[$dateStr] ?? null;
-
-                                        /* PERBAIKAN LOGIKA: Data hanya dianggap 'Ada' jika statusnya Approved atau Auto */
                                         $absen = ($rawAbsen && in_array($rawAbsen->approval_status, ['Approved', 'Auto'])) ? $rawAbsen : null;
-                                        
                                         $libur = $listLiburBulanIni[$dateStr] ?? null;
                                         $isToday = $dateStr === date('Y-m-d');
                                         $isWeekend = in_array(Carbon\Carbon::parse($dateStr)->dayOfWeek, [0, 6]);
@@ -176,19 +184,14 @@
                                         </span>
                                         @if($absen)
                                             <div class="absolute top-2 right-2">
-                                                <div class="w-2 h-2 rounded-full 
-                                                    @if(in_array($absen->status, ['Hadir', 'Selesai', 'Terlambat'])) bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]
-                                                    @elseif($absen->status == 'Sakit') bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.6)]
-                                                    @elseif($absen->status == 'Izin') bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]
-                                                    @else bg-rose-50 @endif">
-                                                </div>
+                                                <div class="w-2 h-2 rounded-full @if(in_array($absen->status, ['Hadir', 'Selesai', 'Terlambat'])) bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] @elseif($absen->status == 'Sakit') bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.6)] @elseif($absen->status == 'Izin') bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] @else bg-rose-50 @endif"></div>
                                             </div>
                                         @endif
                                     </div>
                                 @endfor
                             </div>
                             
-                            <div class="mt-8 grid grid-cols-2 md:grid-cols-5 gap-4 px-2 pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                            <div class="mt-8 grid grid-cols-2 md:grid-cols-5 gap-4 px-2 pt-6 border-t border-zinc-100 dark:border-zinc-800 text-left">
                                 <div class="flex items-center gap-3 text-left"><div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Hadir</span></div>
                                 <div class="flex items-center gap-3 text-left"><div class="w-2.5 h-2.5 rounded-full bg-rose-600"></div><span class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Sakit</span></div>
                                 <div class="flex items-center gap-3 text-left"><div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div><span class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Izin</span></div>
@@ -199,35 +202,69 @@
                     </div>
                 </div>
 
+                {{-- Kolom Sidebar Misi Aktif (RE-DESIGNED) --}}
                 <div class="lg:col-span-5 space-y-6 lg:sticky lg:top-10 text-left">
-                    <div class="flex items-center justify-between px-2 text-left">
-                        <div class="flex items-center gap-3 text-left"><div class="w-1 h-5 bg-zinc-900 dark:bg-white rounded-full"></div><h4 class="text-sm font-black text-zinc-800 dark:text-white uppercase italic tracking-widest">Misi Aktif Hari Ini</h4></div>
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse text-left"></span>
+                    <div class="flex items-center justify-between px-2 text-left text-left">
+                        <div class="flex items-center gap-3 text-left"><div class="w-1 h-5 bg-zinc-900 dark:bg-white rounded-full text-left"></div><h4 class="text-sm font-black text-zinc-800 dark:text-white uppercase italic tracking-widest">Misi Aktif Hari Ini</h4></div>
+                        <span class="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-full text-[8px] font-black uppercase border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE</span>
                     </div>
 
                     <div class="space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar pr-3 text-left">
                         @forelse($tugasOngoing->filter(fn($t) => strtolower($t->pivot->status) !== 'selesai' && now()->between($t->tgl_mulai, $t->tgl_selesai))->values() as $index => $tgs)
-                            <div class="bg-white dark:bg-zinc-900 p-6 rounded-[2.2rem] border-l-8 {{ str_replace('bg-', 'border-', $taskColors[$index % 5]) }} border-y border-r border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all duration-500 group relative text-left">
-                                <div class="relative z-10 flex flex-col text-left">
-                                    <div class="flex justify-between items-start mb-4 text-left">
-                                        <span class="px-2 py-1 {{ $taskColors[$index % 5] }} text-white rounded-lg text-[7px] font-black uppercase tracking-widest">UNIT_{{ str_pad($tgs->id, 3, '0', STR_PAD_LEFT) }}</span>
-                                        <span class="text-[10px] font-black text-rose-500 tabular-nums italic text-left">{{ \Carbon\Carbon::parse($tgs->tgl_selesai)->translatedFormat('d M') }}</span>
-                                    </div>
-                                    <h5 class="text-base font-black text-zinc-800 dark:text-zinc-100 uppercase italic leading-tight mb-2 group-hover:text-emerald-500 transition-colors text-left">{{ $tgs->judul }}</h5>
-                                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium italic leading-relaxed mb-6 line-clamp-2 text-left">{{ $tgs->deskripsi }}</p>
-                                    
-                                    @php
-                                        $pivStatus = strtolower($tgs->pivot->status ?? '');
-                                        $isSubmitted = ($pivStatus === 'dikumpulkan');
-                                    @endphp
+                            <div class="group relative bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-zinc-800 p-6 transition-all duration-500 hover:border-zinc-900 dark:hover:border-white shadow-sm overflow-hidden text-left">
+                                {{-- Warna Indikator Samping --}}
+                                <div class="absolute left-0 top-1/4 bottom-1/4 w-1.5 {{ $taskColors[$index % 5] }} rounded-r-full"></div>
 
+                                <div class="flex justify-between items-start mb-4 text-left">
+                                    <div class="flex flex-col text-left">
+                                        <span class="text-[9px] font-black {{ str_replace('bg-', 'text-', $taskColors[$index % 5]) }} uppercase tracking-widest italic mb-1 text-left leading-none">Task_Identifier: UNIT_{{ str_pad($tgs->id, 3, '0', STR_PAD_LEFT) }}</span>
+                                        <h5 class="text-lg font-black text-zinc-800 dark:text-white uppercase italic tracking-tighter leading-tight group-hover:translate-x-1 transition-transform text-left leading-none">{{ $tgs->judul }}</h5>
+                                    </div>
+                                    <div class="flex flex-col items-end text-left leading-none">
+                                        <span class="text-[8px] font-black text-zinc-400 uppercase italic">Deadline</span>
+                                        <span class="text-[11px] font-black text-rose-500 tabular-nums uppercase">{{ \Carbon\Carbon::parse($tgs->tgl_selesai)->translatedFormat('d M Y') }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="relative bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl mb-6 text-left">
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 font-bold italic leading-relaxed line-clamp-3 text-left">{{ $tgs->deskripsi }}</p>
+                                </div>
+
+                                {{-- BOX ALASAN PENOLAKAN (MODERN DESIGN) --}}
+                                @if($tgs->pivot->alasan_tolak)
+                                    <div class="mb-6 relative group/memo text-left">
+                                        <div class="absolute -inset-1 bg-rose-500/20 rounded-[2rem] blur-sm"></div>
+                                        <div class="relative bg-white dark:bg-zinc-950 border-2 border-rose-500/30 p-5 rounded-[1.8rem] shadow-sm">
+                                            <div class="flex items-center gap-2 mb-3 text-left leading-none">
+                                                <div class="bg-rose-500 p-1.5 rounded-lg text-white">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                </div>
+                                                <span class="text-[9px] font-black text-rose-500 uppercase tracking-widest italic leading-none">Catatan_Revisi_Mentor</span>
+                                            </div>
+                                            <p class="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 italic leading-relaxed text-left">
+                                                "{{ $tgs->pivot->alasan_tolak }}"
+                                            </p>
+                                            <div class="absolute -right-2 -bottom-2 opacity-5">
+                                                <svg class="w-16 h-16 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @php
+                                    $pivStatus = strtolower($tgs->pivot->status ?? '');
+                                    $isSubmitted = ($pivStatus === 'dikumpulkan');
+                                @endphp
+
+                                <div class="flex items-center gap-3 text-left">
                                     @if($isSubmitted)
-                                        <button disabled class="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic cursor-not-allowed border border-zinc-200 dark:border-zinc-700 transition-all text-center">
-                                            MENUNGGU EVALUASI MENTOR
-                                        </button>
+                                        <div class="flex-1 py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic border border-zinc-200 dark:border-zinc-700 text-center flex items-center justify-center gap-2">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse"></span> MENUNGGU EVALUASI
+                                        </div>
                                     @else
-                                        <button @click="selectedTugas = {{ $tgs->toJson() }}; openDetailTugas = true" class="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic active:scale-95 transition-all text-center">
-                                            TRANSMISI DATA
+                                        <button @click="selectedTugas = {{ $tgs->toJson() }}; openDetailTugas = true" 
+                                            class="flex-1 py-4 {{ $tgs->pivot->alasan_tolak ? 'bg-rose-500 text-white shadow-rose-500/20' : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-zinc-900/20' }} rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] italic active:scale-95 transition-all text-center group-hover:shadow-lg">
+                                            {{ $tgs->pivot->alasan_tolak ? 'PERBAIKI LAPORAN' : 'TRANSMISI DATA' }}
                                         </button>
                                     @endif
                                 </div>
@@ -338,5 +375,6 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 20px; }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 </x-app-layout>

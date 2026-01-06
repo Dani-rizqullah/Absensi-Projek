@@ -35,7 +35,8 @@ class Tugas extends Model
     public function karyawans()
     {
         return $this->belongsToMany(User::class, 'tugas_karyawan', 'tugas_id', 'user_id')
-            ->withPivot('status', 'file_hasil', 'link_tautan', 'pesan_karyawan', 'tgl_pengumpulan')
+            // Tambahkan 'alasan_tolak' di sini
+            ->withPivot('status', 'file_hasil', 'link_tautan', 'pesan_karyawan', 'alasan_tolak', 'tgl_pengumpulan')
             ->withTimestamps();
     }
 }

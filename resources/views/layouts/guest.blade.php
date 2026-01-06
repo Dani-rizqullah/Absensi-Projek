@@ -23,13 +23,17 @@
         
         <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-96 bg-indigo-500/5 dark:bg-indigo-500/[0.02] blur-[120px] pointer-events-none"></div>
 
-        <div class="mb-12 text-center relative z-10">
+        <div class="mb-8 text-center relative z-10">
             <a href="/" class="group inline-block">
-                <div class="w-16 h-16 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-2xl flex items-center justify-center transition-all group-hover:scale-105 group-active:scale-95 duration-500 shadow-2xl shadow-zinc-500/20 dark:shadow-none border border-zinc-800 dark:border-zinc-200">
-                    <svg class="h-9 w-9" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M30 30H70V70H30V30Z" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/>
-                        <rect x="45" y="45" width="10" height="10" fill="currentColor"/>
-                    </svg>
+                {{-- Container Logo: Besar, Melayang (Tanpa Kotak), Responsif --}}
+                <div class="w-24 h-24 md:w-32 md:h-32 flex items-center justify-center transition-all group-hover:scale-105 group-active:scale-95 duration-500 overflow-visible">
+                    
+                    {{-- Pemanggilan Logo PNG Anda --}}
+                    <img src="{{ asset('images/logo.png') }}" 
+                         alt="Logo {{ config('app.name') }}" 
+                         class="h-full w-full object-contain transition-all duration-500 
+                                grayscale brightness-0 dark:invert">
+                                
                 </div>
             </a>
         </div>

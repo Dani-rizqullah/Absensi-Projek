@@ -33,6 +33,7 @@
         tugasTab: '{{ request('tab', 'perlu_review') }}',
         missionSearch: '',
         openViewLaporan: false,
+        showRejectForm: false,
         openDetailAbsen: false,
         selectedAbsen: null,
         selectedKaryawanTugas: null,
@@ -233,7 +234,7 @@
                                                         pesan: '{{ addslashes($karyawan->pivot->pesan_karyawan) }}',
                                                         link: '{{ $karyawan->pivot->link_tautan }}',
                                                         file: '{{ $karyawan->pivot->file_hasil }}'
-                                                    }; openViewLaporan = true" class="p-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl hover:scale-105 shadow-md">
+                                                    }; showRejectForm = false; openViewLaporan = true" class="p-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl hover:scale-105 shadow-md">
                                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                     </button>
                                                     @else
@@ -248,12 +249,6 @@
                             </div>
                         </div>
                     @endforeach
-                </div>
-
-                <div class="mt-8 flex justify-center">
-                    @if(method_exists($daftarTugas, 'links'))
-                        {{ $daftarTugas->links() }}
-                    @endif
                 </div>
             </div>
         </div>
@@ -350,16 +345,29 @@
                     </div>
 
                     <template x-if="selectedKaryawanTugas?.status == 'dikumpulkan'">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                            <form :action="'{{ url('mentor/tugas/tolak') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST" onsubmit="return confirm('Tolak laporan ini? Karyawan harus mengirim ulang bukti.')">
-                                @csrf
-                                <button type="submit" class="w-full bg-rose-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-rose-500/20 italic hover:bg-rose-600 transition-all active:scale-95 leading-none">REJECT REPORT</button>
-                            </form>
+                        <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                            <div x-show="showRejectForm" x-transition class="space-y-4 mb-4">
+                                <label class="text-[9px] font-black text-rose-500 uppercase tracking-widest italic">Alasan Penolakan Operasional:</label>
+                                <form :action="'{{ url('mentor/tugas/tolak') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST">
+                                    @csrf
+                                    <textarea name="alasan_tolak" required placeholder="Jelaskan apa yang perlu diperbaiki karyawan..." 
+                                        class="w-full bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold text-zinc-700 dark:text-zinc-300 focus:ring-rose-500 italic shadow-inner mb-3"></textarea>
+                                    
+                                    <div class="flex gap-2">
+                                        <button type="button" @click="showRejectForm = false" class="flex-1 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-xl font-black text-[8px] uppercase tracking-widest italic leading-none">Batal</button>
+                                        <button type="submit" class="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-black text-[8px] uppercase tracking-widest italic shadow-lg shadow-rose-500/20 leading-none">Kirim Penolakan</button>
+                                    </div>
+                                </form>
+                            </div>
 
-                            <form :action="'{{ url('mentor/tugas/selesai') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST">
-                                @csrf
-                                <button type="submit" class="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 italic hover:bg-emerald-600 transition-all active:scale-95 leading-none">APPROVE MISSION</button>
-                            </form>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" x-show="!showRejectForm">
+                                <button type="button" @click="showRejectForm = true" class="w-full bg-rose-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-rose-500/20 italic hover:bg-rose-600 transition-all active:scale-95 leading-none uppercase">REJECT REPORT</button>
+
+                                <form :action="'{{ url('mentor/tugas/selesai') }}/' + selectedKaryawanTugas?.tugas_id + '/' + selectedKaryawanTugas?.user_id" method="POST">
+                                    @csrf
+                                    <button type="submit" class="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20 italic hover:bg-emerald-600 transition-all active:scale-95 leading-none uppercase">APPROVE MISSION</button>
+                                </form>
+                            </div>
                         </div>
                     </template>
                 </div>

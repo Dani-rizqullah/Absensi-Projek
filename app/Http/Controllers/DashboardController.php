@@ -55,7 +55,7 @@ class DashboardController extends Controller
             'pesan_keluar' => "Sinyal keluar tersedia"
         ];
 
-        // 5. Riwayat Absen & Hari Libur Bulan Ini (Key as String Y-m-d)
+        // 5. Riwayat Absen & Hari Libur Bulan Ini
         $riwayatAbsen = Absensi::where('user_id', $user->id)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
@@ -77,16 +77,17 @@ class DashboardController extends Controller
                 return [$key => $item];
             });
 
-        // 6. Data Tugas untuk Kalender (Mengambil semua yang beririsan dengan bulan terpilih)
+        // 6. Data Tugas untuk Kalender (DITAMBAHKAN withPivot 'alasan_tolak')
         $tugasKalender = $user->tugas()
+            ->withPivot('status', 'alasan_tolak') // Menarik data alasan tolak agar muncul di tooltip kalender jika perlu
             ->where(function($q) use ($year, $month) {
                 $q->whereMonth('tgl_mulai', $month)->whereYear('tgl_mulai', $year)
                   ->orWhereMonth('tgl_selesai', $month)->whereYear('tgl_selesai', $year);
             })->get();
 
-        // 7. PERBAIKAN: Tugas Ongoing (Sidebar Kanan)
-        // Hanya yang: Status Belum Selesai DAN Tanggal Sekarang berada di dalam rentang tugas
+        // 7. Tugas Ongoing untuk Sidebar (DITAMBAHKAN withPivot 'alasan_tolak')
         $tugasOngoing = $user->tugas()
+            ->withPivot('status', 'file_hasil', 'link_tautan', 'pesan_karyawan', 'alasan_tolak') // WAJIB ada 'alasan_tolak'
             ->wherePivot('status', '!=', 'selesai')
             ->whereDate('tgl_mulai', '<=', $today)
             ->whereDate('tgl_selesai', '>=', $today)

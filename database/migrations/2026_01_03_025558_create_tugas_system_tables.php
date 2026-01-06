@@ -30,13 +30,17 @@ return new class extends Migration
             $table->foreignId('tugas_id')->constrained('tugas')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             
-            // Status pengerjaan: pending, ongoing, dikumpulkan
+            // Status pengerjaan: pending, dikumpulkan, selesai
             $table->string('status')->default('pending'); 
             
             // Bukti Pengumpulan Kerja
-            $table->string('file_hasil')->nullable(); // Nama file yang diunggah
-            $table->text('link_tautan')->nullable();  // Link tambahan (G-Drive/Github)
+            $table->string('file_hasil')->nullable(); 
+            $table->text('link_tautan')->nullable();  
             $table->text('pesan_karyawan')->nullable();
+            
+            // FITUR REVISI: Alasan penolakan dari Mentor/Admin
+            $table->text('alasan_tolak')->nullable(); 
+            
             $table->dateTime('tgl_pengumpulan')->nullable();
             $table->timestamps();
         });
